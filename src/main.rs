@@ -1,13 +1,12 @@
 use std::error::Error;
-use env_logger::{Builder, Env};
+use env_logger::{Builder};
 use clap::{Arg, App, SubCommand};
 use whitenoise_client::client::WhiteNoiseClient;
 use whitenoise_client::Client;
-use libp2p::PeerId;
 use prost::Message;
-use futures::{future::FutureExt, channel::mpsc};
+use futures::{future::FutureExt};
 use bytes::BufMut;
-use log::{debug,info,warn,error};
+use log::{info};
 
 pub const BUF_LEN: usize = 65536;
 
@@ -59,12 +58,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let nick_name = String::from(x.value_of("nick").unwrap_or("Alice"));
         info!("nick name: {}", nick_name);
         let remote_whitenoise_id_option = x.value_of("node");
-        let remote_whitenoise_id_str_option = match remote_whitenoise_id_option {
-            None => None,
-            Some(remote_whitenoise_id) => {
-                Some(String::from(remote_whitenoise_id))
-            }
-        };
+        let remote_whitenoise_id_str_option = remote_whitenoise_id_option.map(String::from);
         let key_type = String::from(x.value_of("ktype").unwrap_or("ed25519"));
         start_client(String::from(bootstrap_addr_str), nick_name, remote_whitenoise_id_str_option.clone(), key_type).await;
     }
@@ -75,22 +69,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 pub async fn start_client(bootstrap_addr_str: String, nick_name: String, remote_whitenoise_id_option: Option<String>, key_type: String) {
     let parts: Vec<&str> = bootstrap_addr_str.split('/').collect();
-    let bootstrap_peer_id_str = parts.get(parts.len() - 1).unwrap();
+    let bootstrap_peer_id_str = parts.last().unwrap();
     info!("bootstrap peer id:{}", bootstrap_peer_id_str);
 
-    let mut whitenoise_client = WhiteNoiseClient::init(bootstrap_addr_str,  whitenoisers::account::key_types::KeyType::from_str(key_type.as_str()), None);
+    let mut whitenoise_client = WhiteNoiseClient::init(bootstrap_addr_str, whitenoisers::account::key_types::KeyType::from_str(key_type.as_str()), None);
 
     let peer_list = whitenoise_client.get_main_net_peers(10).await;
     let mut index = rand::random::<usize>();
-    index = index % peer_list.len();
+    index %= peer_list.len();
     let proxy_remote_id = peer_list.get(index).unwrap();
     info!("choose id:{:?} to register", proxy_remote_id);
 
 
-    whitenoise_client.register(proxy_remote_id.clone()).await;
+    whitenoise_client.register(*proxy_remote_id).await;
     //dial
     if remote_whitenoise_id_option.is_some() {
-        caller(String::from(remote_whitenoise_id_option.unwrap()), whitenoise_client, nick_name).await;
+        caller(remote_whitenoise_id_option.unwrap(), whitenoise_client, nick_name).await;
     } else {
         answer(whitenoise_client, nick_name).await;
     }
@@ -101,12 +95,12 @@ pub async fn answer(mut client: WhiteNoiseClient, nick_name: String) {
     let mut circuit_conn = client.get_circuit(session_id.as_str()).unwrap();
 
     // let mut stdin = io::BufReader::new(io::stdin()).lines();
-    let mut line = String::new();
-    let mut stdin = async_std::io::stdin();
+    let stdin = async_std::io::stdin();
     let mut buf = [0u8; BUF_LEN];
     loop {
+        let mut line = String::new();
         futures::select! {
-             read_res = stdin.read_line(&mut line).fuse() =>{
+             _ = stdin.read_line(&mut line).fuse() =>{
                 let chat_message = chat_proto::ChatMessage{peer_id: nick_name.clone(),data: line.as_bytes().to_vec()};
                 let mut chat_message_encode = Vec::new();
                 chat_message.encode(&mut chat_message_encode).unwrap();
@@ -136,14 +130,15 @@ pub async fn caller(remote_whitenoise_id: String, mut client: WhiteNoiseClient, 
                 info!("shake hand finished");
                 break cc.clone();
             }
-            async_std::task::sleep(std::time::Duration::from_millis(20));
+            async_std::task::sleep(std::time::Duration::from_millis(20)).await;
         };
-    let mut line = String::new();
-    let mut stdin = async_std::io::stdin();
+
+    let stdin = async_std::io::stdin();
     let mut buf = [0u8; BUF_LEN];
     loop {
+        let mut line = String::new();
         futures::select! {
-            read_res = stdin.read_line(&mut line).fuse() =>{
+            _ = stdin.read_line(&mut line).fuse() =>{
                 let chat_message = chat_proto::ChatMessage{peer_id: nick_name.clone(),data: line.as_bytes().to_vec()};
                 let mut chat_message_encode = Vec::new();
                 chat_message.encode(&mut chat_message_encode).unwrap();
@@ -158,7 +153,6 @@ pub async fn caller(remote_whitenoise_id: String, mut client: WhiteNoiseClient, 
             data = circuit_conn.read(&mut buf).fuse() =>{
             let chat_message = chat_proto::ChatMessage::decode(data.as_slice()).unwrap();
                 println!("receive {}, message:{}",chat_message.peer_id,String::from_utf8_lossy(&chat_message.data));
-
             }
         }
     }
