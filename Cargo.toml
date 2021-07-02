@@ -19,7 +19,7 @@ clap = "2.27.0"
 rand = "0.7"
 prost = "0.7"
 
-whitenoisers = { git = 'https://github.com/Evanesco-Labs/WhiteNoise.rs.git', rev = "94372dc" }
+whitenoisers = { git = 'https://github.com/Evanesco-Labs/WhiteNoise.rs.git', rev = "b858c67" }
 
 [build-dependencies]
 prost-build = "0.7"
