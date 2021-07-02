@@ -72,7 +72,7 @@ pub async fn start_client(bootstrap_addr_str: String, nick_name: String, remote_
     let bootstrap_peer_id_str = parts.last().unwrap();
     info!("bootstrap peer id:{}", bootstrap_peer_id_str);
 
-    let mut whitenoise_client = WhiteNoiseClient::init(bootstrap_addr_str, whitenoisers::account::key_types::KeyType::from_str(key_type.as_str()), None);
+    let mut whitenoise_client = WhiteNoiseClient::init(bootstrap_addr_str, whitenoisers::account::key_types::KeyType::from_text_str(key_type.as_str()), None);
 
     let peer_list = whitenoise_client.get_main_net_peers(10).await;
     let mut index = rand::random::<usize>();

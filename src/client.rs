@@ -9,7 +9,7 @@ use futures::{StreamExt};
 use whitenoisers::sdk::{host, host::RunMode};
 use async_trait::async_trait;
 use log::{debug};
-use whitenoisers::account::account::Account;
+use whitenoisers::account::account_service::Account;
 use crate::Client;
 
 pub async fn process_new_stream(mut node: Node) {
